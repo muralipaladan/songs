@@ -3,160 +3,350 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>പാട്ട് പ്ലെയർ</title>
-<link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;600;800&display=swap" rel="stylesheet">
+<title>Interactive Lyrics Video Maker</title>
+<link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;600&family=Manjari:wght@400;700&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#0F172A; --panel:#111C34; --accent:#38BDF8; --text:#F8FAFC; --muted:#94A3B8;
+  :root {
+    --bg: #0F172A; --panel: #1E293B; --accent: #38BDF8; --text: #F8FAFC; --muted: #94A3B8;
   }
-  *{box-sizing:border-box;}
-  body,html{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);
-    font-family:'Anek Malayalam',system-ui,sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent;}
-  #app{display:flex;height:100vh;width:100vw;}
-
-  /* ---- Song list panel ---- */
-  #songListPanel{
-    width:260px;min-width:260px;background:var(--panel);border-right:1px solid rgba(255,255,255,0.08);
-    display:flex;flex-direction:column;transition:transform .25s ease;
+  * { box-sizing: border-box; }
+  body, html { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Anek Malayalam', sans-serif; }
+  
+  .container { max-width: 500px; margin: 0 auto; padding: 15px; display: flex; flex-direction: column; gap: 15px; }
+  h1 { font-size: 20px; text-align: center; margin: 5px 0; color: var(--accent); }
+  
+  .input-group { display: flex; flex-direction: column; gap: 5px; }
+  label { font-size: 14px; color: var(--muted); }
+  
+  input[type="file"], textarea {
+    width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+    background: var(--panel); color: var(--text); font-family: inherit; font-size: 14px;
   }
-  #songListPanel h1{font-size:18px;padding:16px;margin:0;border-bottom:1px solid rgba(255,255,255,0.08);}
-  #songList{list-style:none;margin:0;padding:8px;overflow-y:auto;flex:1;}
-  #songList li{
-    padding:12px 14px;border-radius:10px;margin-bottom:6px;cursor:pointer;font-size:15px;
-    color:var(--muted);transition:background .15s, color .15s;
+  textarea { height: 100px; resize: none; }
+  
+  .canvas-wrapper {
+    position: relative; width: 100%; aspect-ratio: 9/16; background: #000; border-radius: 12px; overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
   }
-  #songList li .movie{display:block;font-size:12px;opacity:.7;margin-top:2px;}
-  #songList li:active{background:rgba(56,189,248,0.15);}
-  #songList li.active{background:rgba(56,189,248,0.18);color:var(--accent);}
-
-  /* ---- Player panel ---- */
-  #playerPanel{flex:1;display:flex;flex-direction:column;position:relative;min-width:0;}
-  #topbar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.08);}
-  #menuBtn{display:none;background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;}
-  #nowTitle{font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-
-  audio{width:100%;display:block;background:var(--panel);outline:none;}
-
-  #lyricsBox{
-    flex:1;overflow-y:auto;padding:30px 24px 50vh 24px;scroll-behavior:smooth;
+  canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
+  canvas:active { cursor: grabbing; }
+  
+  .btn {
+    background: var(--accent); color: #000; font-weight: 700; border: none; padding: 14px; border-radius: 8px;
+    font-size: 16px; cursor: pointer; transition: 0.2s;
   }
-  #lyricsBox .line{
-    font-size:19px;line-height:1.9;color:var(--muted);margin-bottom:14px;transition:color .2s;
-  }
-  #empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;
-    color:var(--muted);text-align:center;padding:20px;}
-  #empty .play-hint{width:70px;height:70px;border-radius:50%;background:var(--accent);
-    display:flex;align-items:center;justify-content:center;font-size:28px;color:#000;margin-bottom:16px;}
-
-  @media (max-width:720px){
-    #songListPanel{position:fixed;left:0;top:0;bottom:0;z-index:30;transform:translateX(-100%);width:78vw;}
-    #songListPanel.open{transform:translateX(0);}
-    #menuBtn{display:block;}
-    #overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:20;}
-    #overlay.show{display:block;}
-  }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { background: var(--muted); cursor: not-allowed; transform: none; }
+  
+  .status { text-align: center; font-size: 14px; color: #10B981; display: none; }
+  .recording-indicator { color: #EF4444; font-weight: bold; text-align: center; display: none; animation: blink 1s infinite; }
+  
+  @keyframes blink { 50% { opacity: 0.4; } }
 </style>
 </head>
 <body>
-<div id="app">
-  <div id="songListPanel">
-    <h1>🎵 പാട്ടുകൾ</h1>
-    <ul id="songList"></ul>
-  </div>
-  <div id="overlay"></div>
 
-  <div id="playerPanel">
-    <div id="topbar">
-      <button id="menuBtn">☰</button>
-      <div id="nowTitle">പാട്ട് തിരഞ്ഞെടുക്കൂ</div>
-    </div>
-    
-    <audio id="player" controls></audio>
-    
-    <div id="lyricsBox">
-      <div id="empty">
-        <div class="play-hint">▶</div>
-        ഇടതുവശത്ത് നിന്ന് ഒരു പാട്ട് തിരഞ്ഞെടുക്കൂ
-      </div>
-    </div>
+<div class="container">
+  <h1>Lyrics Video Maker</h1>
+  
+  <div class="input-group">
+    <label>1. പാട്ട് (Audio) തിരഞ്ഞെടുക്കുക</label>
+    <input type="file" id="audioInput" accept="audio/*">
   </div>
+  
+  <div class="input-group">
+    <label>2. വരികൾ (Lyrics) നൽകുക</label>
+    <textarea id="lyricsInput" placeholder="വരികൾ ഇവിടെ പേസ്റ്റ് ചെയ്യുക..."></textarea>
+  </div>
+  
+  <div class="canvas-wrapper">
+    <canvas id="videoCanvas" width="720" height="1280" tabindex="0"></canvas>
+  </div>
+  
+  <button id="recordBtn" class="btn">🔴 റെക്കോർഡിംഗ് തുടങ്ങുക</button>
+  <button id="stopBtn" class="btn" style="display:none; background:#EF4444; color:#fff;">⏹ റെക്കോർഡിംഗ് നിർത്തുക</button>
+  
+  <div id="recordingStatus" class="recording-indicator">റെക്കോർഡ് ചെയ്യുന്നു... (കീബോർഡ് Up/Down ഉപയോഗിക്കുക)</div>
+  <div id="saveStatus" class="status">വീഡിയോ സേവ് ആയി! ഡൗൺലോഡ് പരിശോധിക്കുക.</div>
+  
+  <!-- crossOrigin="anonymous" നൽകിയിട്ടുണ്ട് -->
+  <audio id="audioPlayer" crossOrigin="anonymous"></audio>
 </div>
 
 <script>
-const songListEl = document.getElementById('songList');
-const player = document.getElementById('player');
-const lyricsBox = document.getElementById('lyricsBox');
-const nowTitle = document.getElementById('nowTitle');
-const songListPanel = document.getElementById('songListPanel');
-const overlay = document.getElementById('overlay');
-const menuBtn = document.getElementById('menuBtn');
+  const audioInput = document.getElementById('audioInput');
+  const lyricsInput = document.getElementById('lyricsInput');
+  const canvas = document.getElementById('videoCanvas');
+  const ctx = canvas.getContext('2d');
+  const recordBtn = document.getElementById('recordBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const audioPlayer = document.getElementById('audioPlayer');
+  const recordingStatus = document.getElementById('recordingStatus');
+  const saveStatus = document.getElementById('saveStatus');
 
-let songs = [];
-let currentId = null;
+  let mediaRecorder;
+  let recordedChunks = [];
+  let audioCtx, source, dest;
+  let lines = [];
+  
+  let currentScrollY = 0;
+  let isDragging = false;
+  let startY = 0;
+  let initialScrollY = 0;
+  let mouseX = -1;
+  let mouseY = -1;
 
-menuBtn.onclick = () => { songListPanel.classList.add('open'); overlay.classList.add('show'); };
-overlay.onclick = () => { songListPanel.classList.remove('open'); overlay.classList.remove('show'); };
-
-async function loadManifest(){
-  const res = await fetch('songs.json', {cache:'no-store'});
-  songs = await res.json();
-  renderList();
-  const lastId = localStorage.getItem('lastSongId');
-  const startSong = songs.find(s => s.id === lastId) || null;
-  if(startSong) selectSong(startSong.id, false);
-}
-
-function renderList(){
-  songListEl.innerHTML = '';
-  songs.forEach(s => {
-    const li = document.createElement('li');
-    li.dataset.id = s.id;
-    li.innerHTML = `${s.title}${s.movie ? `<span class="movie">${s.movie}</span>` : ''}`;
-    li.onclick = () => selectSong(s.id, true);
-    songListEl.appendChild(li);
+  audioInput.addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+      audioPlayer.src = URL.createObjectURL(file);
+    }
   });
-}
 
-async function selectSong(id, autoplay){
-  const s = songs.find(x => x.id === id);
-  if(!s) return;
-  currentId = id;
-  localStorage.setItem('lastSongId', id);
-
-  [...songListEl.children].forEach(li => li.classList.toggle('active', li.dataset.id === id));
-  nowTitle.textContent = s.title + (s.movie ? ' · ' + s.movie : '');
-
-  player.src = s.song;
-  if(autoplay){ player.play().catch(()=>{}); }
-
-  lyricsBox.innerHTML = '';
-  try{
-    const txt = await (await fetch(s.lyrics, {cache:'no-store'})).text();
-    txt.split('\n').forEach(line => {
-      const div = document.createElement('div');
-      div.className = 'line';
-      div.textContent = line.trim() === '' ? '\u00A0' : line;
-      lyricsBox.appendChild(div);
+  function updateLines() {
+    ctx.font = "bold 65px 'Manjari', sans-serif"; 
+    const rawLines = lyricsInput.value.split('\n');
+    lines = [];
+    const maxWidth = canvas.width - 80; 
+    
+    rawLines.forEach(text => {
+      if (text.trim() === '') {
+        lines.push('');
+        return;
+      }
+      let words = text.split(' ');
+      let currentLine = words[0] || '';
+      for (let i = 1; i < words.length; i++) {
+        let word = words[i];
+        let width = ctx.measureText(currentLine + " " + word).width;
+        if (width < maxWidth) {
+          currentLine += " " + word;
+        } else {
+          lines.push(currentLine); 
+          currentLine = word; 
+        }
+      }
+      if (currentLine) {
+        lines.push(currentLine);
+      }
     });
-  }catch(e){
-    lyricsBox.innerHTML = '<div class="line">വരികൾ ലഭ്യമല്ല</div>';
   }
 
-  songListPanel.classList.remove('open');
-  overlay.classList.remove('show');
-}
+  lyricsInput.addEventListener('input', updateLines);
 
-// സ്ക്രീനിൽ ടച്ച് ചെയ്യുമ്പോൾ പാട്ട് പ്ലേ / പോസ് ആകാനുള്ള കോഡ്
-lyricsBox.addEventListener('click', () => {
-  if (!currentId) return; 
-  if (player.paused) {
-    player.play();
-  } else {
-    player.pause();
+  function getEventY(e) { return e.touches ? e.touches[0].clientY : e.clientY; }
+  
+  function updatePointerPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    mouseX = (clientX - rect.left) * (canvas.width / rect.width);
+    mouseY = (clientY - rect.top) * (canvas.height / rect.height);
   }
-});
 
-loadManifest();
+  function onDragStart(e) {
+    isDragging = true;
+    startY = getEventY(e);
+    initialScrollY = currentScrollY;
+    updatePointerPos(e);
+    canvas.focus(); 
+  }
+
+  function onDragMove(e) {
+    updatePointerPos(e);
+    if (!isDragging) return;
+    let dy = getEventY(e) - startY;
+    let scale = canvas.height / canvas.clientHeight; 
+    currentScrollY = initialScrollY + (dy * scale);
+  }
+
+  function onDragEnd() {
+    isDragging = false;
+    if (('ontouchstart' in window)) {
+        mouseX = -1; mouseY = -1;
+    }
+  }
+
+  canvas.addEventListener('mousedown', onDragStart);
+  canvas.addEventListener('mousemove', onDragMove);
+  window.addEventListener('mouseup', onDragEnd);
+  canvas.addEventListener('mouseleave', () => { isDragging = false; mouseX = -1; mouseY = -1; });
+  
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    updatePointerPos(e);
+    let scale = canvas.height / canvas.clientHeight;
+    currentScrollY -= (e.deltaY * scale * 1.5);
+  }, { passive: false });
+
+  canvas.addEventListener('touchstart', onDragStart, { passive: true });
+  canvas.addEventListener('touchmove', onDragMove, { passive: true });
+  window.addEventListener('touchend', onDragEnd);
+  window.addEventListener('touchcancel', onDragEnd);
+
+  window.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+    const scrollSpeed = 60; 
+    if (e.key === 'ArrowUp') {
+      currentScrollY += scrollSpeed;
+      e.preventDefault();
+    } else if (e.key === 'ArrowDown') {
+      currentScrollY -= scrollSpeed;
+      e.preventDefault();
+    }
+  });
+
+  // --- AUDIO FIX SECTION ---
+  recordBtn.addEventListener('click', async () => {
+    if (!audioPlayer.src) {
+      alert("ആദ്യം ഒരു പാട്ട് അപ്‌ലോഡ് ചെയ്യുക!");
+      return;
+    }
+    
+    updateLines(); 
+    currentScrollY = 0; 
+    canvas.focus(); 
+    
+    // പ്രശ്നം ഒഴിവാക്കാൻ ആദ്യം ഓഡിയോ പ്ലേ ചെയ്യുന്നു
+    try {
+        await audioPlayer.play();
+    } catch (err) {
+        console.error("Audio play failed:", err);
+    }
+    
+    let audioTracks = [];
+    
+    // കൂടുതൽ ബ്രൗസറുകൾ സപ്പോർട്ട് ചെയ്യുന്ന ഓഡിയോ ക്യാപ്ചർ രീതി (Modern Browsers)
+    if (audioPlayer.captureStream || audioPlayer.mozCaptureStream) {
+        const aStream = audioPlayer.captureStream ? audioPlayer.captureStream() : audioPlayer.mozCaptureStream();
+        audioTracks = aStream.getAudioTracks();
+    }
+    
+    // പഴയ രീതി (Fallback for Mobile/Safari)
+    if (audioTracks.length === 0) {
+        if (!audioCtx) {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          source = audioCtx.createMediaElementSource(audioPlayer);
+          dest = audioCtx.createMediaStreamDestination();
+          source.connect(dest);
+          source.connect(audioCtx.destination);
+        }
+        await audioCtx.resume();
+        audioTracks = dest.stream.getAudioTracks();
+    }
+    
+    audioPlayer.currentTime = 0; // ഓഡിയോ ആദ്യം മുതൽ തുടങ്ങാൻ
+    
+    const canvasStream = canvas.captureStream(30); 
+    const combinedStream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...audioTracks
+    ]);
+    
+    let mimeType = 'video/webm;codecs=vp8,opus';
+    if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
+    }
+    
+    mediaRecorder = new MediaRecorder(combinedStream, { mimeType: mimeType });
+    recordedChunks = [];
+    
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) recordedChunks.push(e.data);
+    };
+    
+    mediaRecorder.onstop = () => {
+      const blob = new Blob(recordedChunks, { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Lyrics-Video-${Date.now()}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`;
+      a.click();
+      
+      recordBtn.style.display = 'block';
+      stopBtn.style.display = 'none';
+      recordingStatus.style.display = 'none';
+      saveStatus.style.display = 'block';
+      setTimeout(() => saveStatus.style.display = 'none', 4000);
+    };
+    
+    recordBtn.style.display = 'none';
+    stopBtn.style.display = 'block';
+    recordingStatus.style.display = 'block';
+    saveStatus.style.display = 'none';
+    
+    mediaRecorder.start();
+  });
+
+  stopBtn.addEventListener('click', () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      audioPlayer.pause();
+    }
+  });
+
+  audioPlayer.addEventListener('ended', () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      stopBtn.click();
+    }
+  });
+
+  function drawFrame() {
+    ctx.fillStyle = "#0A0F1C"; 
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    const startYPos = canvas.height / 2;
+    const lineSpacing = 100; 
+    
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    
+    lines.forEach((line, index) => {
+      const lineY = startYPos + (index * lineSpacing) + currentScrollY;
+      
+      if (lineY < -100 || lineY > canvas.height + 100) return;
+      
+      const centerDist = Math.abs((canvas.height / 2) - lineY);
+      const isHovered = (mouseX !== -1 && mouseY !== -1 && Math.abs(mouseY - lineY) < 45);
+      
+      if (isHovered) {
+        ctx.fillStyle = "#38BDF8"; 
+        ctx.font = "bold 65px 'Manjari', sans-serif";
+        ctx.shadowColor = "rgba(56, 189, 248, 0.9)";
+        ctx.shadowBlur = 25;
+      } else if (centerDist < 80 && mouseX === -1) {
+        ctx.fillStyle = "#38BDF8"; 
+        ctx.font = "bold 60px 'Manjari', sans-serif";
+        ctx.shadowColor = "rgba(56, 189, 248, 0.6)";
+        ctx.shadowBlur = 15;
+      } else {
+        let opacity = Math.max(0.1, 1 - (centerDist / 500));
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`; 
+        ctx.font = "bold 45px 'Manjari', sans-serif";
+        ctx.shadowBlur = 0;
+      }
+      
+      ctx.fillText(line, canvas.width / 2, lineY);
+      ctx.shadowBlur = 0; 
+    });
+    
+    let topFade = ctx.createLinearGradient(0, 0, 0, 250);
+    topFade.addColorStop(0, "#0A0F1C");
+    topFade.addColorStop(1, "transparent");
+    ctx.fillStyle = topFade;
+    ctx.fillRect(0, 0, canvas.width, 250);
+    
+    let bottomFade = ctx.createLinearGradient(0, canvas.height - 250, 0, canvas.height);
+    bottomFade.addColorStop(0, "transparent");
+    bottomFade.addColorStop(1, "#0A0F1C");
+    ctx.fillStyle = bottomFade;
+    ctx.fillRect(0, canvas.height - 250, canvas.width, 250);
+    
+    requestAnimationFrame(drawFrame);
+  }
+
+  drawFrame();
 </script>
+
 </body>
 </html>
