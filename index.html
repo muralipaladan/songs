@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Interactive Lyrics Video Maker</title>
+<title>Auto-Scroll Lyrics Video Maker</title>
 <link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;600&family=Manjari:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -16,13 +16,17 @@
   h1 { font-size: 20px; text-align: center; margin: 5px 0; color: var(--accent); }
   
   .input-group { display: flex; flex-direction: column; gap: 5px; }
-  label { font-size: 14px; color: var(--muted); }
+  label { font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; }
   
   input[type="file"], textarea {
     width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
     background: var(--panel); color: var(--text); font-family: inherit; font-size: 14px;
   }
   textarea { height: 100px; resize: none; }
+  
+  /* Speed Slider Styling */
+  input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--accent); }
+  .speed-val { color: var(--accent); font-weight: bold; }
   
   .canvas-wrapper {
     position: relative; width: 100%; aspect-ratio: 9/16; background: #000; border-radius: 12px; overflow: hidden;
@@ -59,6 +63,14 @@
     <textarea id="lyricsInput" placeholder="വരികൾ ഇവിടെ പേസ്റ്റ് ചെയ്യുക..."></textarea>
   </div>
   
+  <div class="input-group">
+    <label>
+      3. സ്ക്രോളിംഗ് വേഗത ക്രമീകരിക്കുക 
+      <span class="speed-val" id="speedValue">40</span>
+    </label>
+    <input type="range" id="speedSlider" min="10" max="150" value="40">
+  </div>
+  
   <div class="canvas-wrapper">
     <canvas id="videoCanvas" width="720" height="1280" tabindex="0"></canvas>
   </div>
@@ -66,16 +78,17 @@
   <button id="recordBtn" class="btn">🔴 റെക്കോർഡിംഗ് തുടങ്ങുക</button>
   <button id="stopBtn" class="btn" style="display:none; background:#EF4444; color:#fff;">⏹ റെക്കോർഡിംഗ് നിർത്തുക</button>
   
-  <div id="recordingStatus" class="recording-indicator">റെക്കോർഡ് ചെയ്യുന്നു... (കീബോർഡ് Up/Down ഉപയോഗിക്കുക)</div>
+  <div id="recordingStatus" class="recording-indicator">റെക്കോർഡ് ചെയ്യുന്നു...</div>
   <div id="saveStatus" class="status">വീഡിയോ സേവ് ആയി! ഡൗൺലോഡ് പരിശോധിക്കുക.</div>
   
-  <!-- crossOrigin="anonymous" നൽകിയിട്ടുണ്ട് -->
-  <audio id="audioPlayer" crossOrigin="anonymous"></audio>
+  <audio id="audioPlayer" crossOrigin="anonymous" controls style="width: 100%; margin-top: 10px;"></audio>
 </div>
 
 <script>
   const audioInput = document.getElementById('audioInput');
   const lyricsInput = document.getElementById('lyricsInput');
+  const speedSlider = document.getElementById('speedSlider');
+  const speedValue = document.getElementById('speedValue');
   const canvas = document.getElementById('videoCanvas');
   const ctx = canvas.getContext('2d');
   const recordBtn = document.getElementById('recordBtn');
@@ -89,12 +102,17 @@
   let audioCtx, source, dest;
   let lines = [];
   
-  let currentScrollY = 0;
+  let scrollSpeed = parseInt(speedSlider.value);
+  let manualOffset = 0; // വരികൾ സിങ്ക് ചെയ്യാൻ മാറ്റി വെക്കാനുള്ള അളവ്
   let isDragging = false;
   let startY = 0;
-  let initialScrollY = 0;
-  let mouseX = -1;
-  let mouseY = -1;
+  let initialOffset = 0;
+
+  // സ്പീഡ് സ്ലൈഡർ അപ്ഡേറ്റ് ചെയ്യുമ്പോൾ
+  speedSlider.addEventListener('input', (e) => {
+    scrollSpeed = parseInt(e.target.value);
+    speedValue.textContent = scrollSpeed;
+  });
 
   audioInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
@@ -134,49 +152,36 @@
 
   lyricsInput.addEventListener('input', updateLines);
 
+  // --- Manual Alignment (Drag/Scroll to fix sync) ---
   function getEventY(e) { return e.touches ? e.touches[0].clientY : e.clientY; }
-  
-  function updatePointerPos(e) {
-    const rect = canvas.getBoundingClientRect();
-    let clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    let clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    mouseX = (clientX - rect.left) * (canvas.width / rect.width);
-    mouseY = (clientY - rect.top) * (canvas.height / rect.height);
-  }
 
   function onDragStart(e) {
     isDragging = true;
     startY = getEventY(e);
-    initialScrollY = currentScrollY;
-    updatePointerPos(e);
+    initialOffset = manualOffset;
     canvas.focus(); 
   }
 
   function onDragMove(e) {
-    updatePointerPos(e);
     if (!isDragging) return;
     let dy = getEventY(e) - startY;
     let scale = canvas.height / canvas.clientHeight; 
-    currentScrollY = initialScrollY + (dy * scale);
+    manualOffset = initialOffset + (dy * scale);
   }
 
   function onDragEnd() {
     isDragging = false;
-    if (('ontouchstart' in window)) {
-        mouseX = -1; mouseY = -1;
-    }
   }
 
   canvas.addEventListener('mousedown', onDragStart);
   canvas.addEventListener('mousemove', onDragMove);
   window.addEventListener('mouseup', onDragEnd);
-  canvas.addEventListener('mouseleave', () => { isDragging = false; mouseX = -1; mouseY = -1; });
+  canvas.addEventListener('mouseleave', () => { isDragging = false; });
   
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    updatePointerPos(e);
     let scale = canvas.height / canvas.clientHeight;
-    currentScrollY -= (e.deltaY * scale * 1.5);
+    manualOffset -= (e.deltaY * scale * 1.5);
   }, { passive: false });
 
   canvas.addEventListener('touchstart', onDragStart, { passive: true });
@@ -184,19 +189,7 @@
   window.addEventListener('touchend', onDragEnd);
   window.addEventListener('touchcancel', onDragEnd);
 
-  window.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
-    const scrollSpeed = 60; 
-    if (e.key === 'ArrowUp') {
-      currentScrollY += scrollSpeed;
-      e.preventDefault();
-    } else if (e.key === 'ArrowDown') {
-      currentScrollY -= scrollSpeed;
-      e.preventDefault();
-    }
-  });
-
-  // --- AUDIO FIX SECTION ---
+  // --- Recording Logic ---
   recordBtn.addEventListener('click', async () => {
     if (!audioPlayer.src) {
       alert("ആദ്യം ഒരു പാട്ട് അപ്‌ലോഡ് ചെയ്യുക!");
@@ -204,10 +197,9 @@
     }
     
     updateLines(); 
-    currentScrollY = 0; 
+    manualOffset = 0; // റെക്കോർഡിങ് തുടങ്ങുമ്പോൾ ഓഫ്‌സെറ്റ് റീസെറ്റ് ചെയ്യുന്നു
     canvas.focus(); 
     
-    // പ്രശ്നം ഒഴിവാക്കാൻ ആദ്യം ഓഡിയോ പ്ലേ ചെയ്യുന്നു
     try {
         await audioPlayer.play();
     } catch (err) {
@@ -216,13 +208,11 @@
     
     let audioTracks = [];
     
-    // കൂടുതൽ ബ്രൗസറുകൾ സപ്പോർട്ട് ചെയ്യുന്ന ഓഡിയോ ക്യാപ്ചർ രീതി (Modern Browsers)
     if (audioPlayer.captureStream || audioPlayer.mozCaptureStream) {
         const aStream = audioPlayer.captureStream ? audioPlayer.captureStream() : audioPlayer.mozCaptureStream();
         audioTracks = aStream.getAudioTracks();
     }
     
-    // പഴയ രീതി (Fallback for Mobile/Safari)
     if (audioTracks.length === 0) {
         if (!audioCtx) {
           audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -235,7 +225,7 @@
         audioTracks = dest.stream.getAudioTracks();
     }
     
-    audioPlayer.currentTime = 0; // ഓഡിയോ ആദ്യം മുതൽ തുടങ്ങാൻ
+    audioPlayer.currentTime = 0; 
     
     const canvasStream = canvas.captureStream(30); 
     const combinedStream = new MediaStream([
@@ -291,45 +281,48 @@
     }
   });
 
+  // --- Drawing & Animation Loop ---
   function drawFrame() {
     ctx.fillStyle = "#0A0F1C"; 
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    const startYPos = canvas.height / 2;
+    const startYPos = canvas.height * 0.7; // വരികൾ തുടങ്ങുന്ന സ്ഥാനം (താഴെ നിന്നും)
     const lineSpacing = 100; 
+    
+    // പാട്ടിന്റെ സമയത്തിനനുസരിച്ച് കാൽക്കുലേറ്റ് ചെയ്യുന്ന ഓട്ടോമാറ്റിക് സ്ക്രോൾ
+    const autoScrollY = audioPlayer.currentTime * scrollSpeed;
     
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     
     lines.forEach((line, index) => {
-      const lineY = startYPos + (index * lineSpacing) + currentScrollY;
+      // (Index * lineSpacing) ലൂടെ ഓരോ വരിക്കും അകലം നൽകുന്നു
+      // autoScrollY കുറയ്ക്കുന്നതിലൂടെ പാട്ട് പ്ലേ ആകുമ്പോൾ വരികൾ മുകളിലേക്ക് നീങ്ങുന്നു
+      // manualOffset വഴി നമുക്ക് വരികൾ സിങ്ക് ചെയ്യാം
+      const lineY = startYPos + (index * lineSpacing) - autoScrollY + manualOffset;
       
+      // കാൻവാസിന് പുറത്തുള്ള വരികൾ വരക്കേണ്ടതില്ല
       if (lineY < -100 || lineY > canvas.height + 100) return;
       
       const centerDist = Math.abs((canvas.height / 2) - lineY);
-      const isHovered = (mouseX !== -1 && mouseY !== -1 && Math.abs(mouseY - lineY) < 45);
       
-      if (isHovered) {
-        ctx.fillStyle = "#38BDF8"; 
-        ctx.font = "bold 65px 'Manjari', sans-serif";
-        ctx.shadowColor = "rgba(56, 189, 248, 0.9)";
-        ctx.shadowBlur = 25;
-      } else if (centerDist < 80 && mouseX === -1) {
-        ctx.fillStyle = "#38BDF8"; 
-        ctx.font = "bold 60px 'Manjari', sans-serif";
-        ctx.shadowColor = "rgba(56, 189, 248, 0.6)";
-        ctx.shadowBlur = 15;
+      // സ്വാഭാവികമായ രൂപം നൽകാൻ തിളക്കം (Glow) ഒഴിവാക്കി
+      // പകരം മധ്യഭാഗത്തുള്ള വരികൾക്ക് വ്യക്തതയും, അറ്റത്തേക്ക് പോകുന്തോറും മങ്ങലും നൽകുന്നു
+      let opacity = Math.max(0.1, 1 - (centerDist / 600));
+      
+      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`; 
+      
+      // മധ്യഭാഗത്തുള്ള വരിക്ക് ലേശം വലിപ്പം കൂടുതൽ തോന്നിപ്പിക്കാം
+      if (centerDist < 100) {
+          ctx.font = "bold 60px 'Manjari', sans-serif";
       } else {
-        let opacity = Math.max(0.1, 1 - (centerDist / 500));
-        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`; 
-        ctx.font = "bold 45px 'Manjari', sans-serif";
-        ctx.shadowBlur = 0;
+          ctx.font = "bold 50px 'Manjari', sans-serif";
       }
       
       ctx.fillText(line, canvas.width / 2, lineY);
-      ctx.shadowBlur = 0; 
     });
     
+    // Top & Bottom Fade Effect (വരികൾ കാൻവാസിൽ ഒതുങ്ങി നിൽക്കാൻ)
     let topFade = ctx.createLinearGradient(0, 0, 0, 250);
     topFade.addColorStop(0, "#0A0F1C");
     topFade.addColorStop(1, "transparent");
