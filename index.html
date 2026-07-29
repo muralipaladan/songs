@@ -3,381 +3,302 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Pro Lyrics Video Maker</title>
-<link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;600&family=Manjari:wght@400;700&display=swap" rel="stylesheet">
+<title>Audio Compressor (16kHz WAV)</title>
+<link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg: #0F172A; --panel: #1E293B; --accent: #38BDF8; --text: #F8FAFC; --muted: #94A3B8;
-  }
+  :root { --bg: #0F172A; --panel: #1E293B; --accent: #38BDF8; --text: #F8FAFC; --muted: #94A3B8; --danger: #EF4444; --success: #10B981; }
   * { box-sizing: border-box; }
   body, html { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'Anek Malayalam', sans-serif; }
   
-  .container { max-width: 500px; margin: 0 auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
-  h1 { font-size: 20px; text-align: center; margin: 5px 0; color: var(--accent); }
+  .container { max-width: 500px; margin: 20px auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+  h1 { font-size: 22px; text-align: center; margin: 0; color: var(--accent); }
+  p.desc { font-size: 14px; color: var(--muted); text-align: center; margin-top: -5px; }
   
-  .input-group { display: flex; flex-direction: column; gap: 5px; }
-  label { font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; }
+  .card { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; gap: 15px; }
   
-  input[type="file"], textarea {
-    width: 100%; padding: 10px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
-    background: var(--panel); color: var(--text); font-family: inherit; font-size: 14px;
+  input[type="file"] {
+    width: 100%; padding: 10px; border-radius: 8px; border: 1px dashed rgba(255,255,255,0.3);
+    background: rgba(0,0,0,0.2); color: var(--text); cursor: pointer;
   }
-  textarea { height: 80px; resize: none; }
-  
-  .meter-box {
-    background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.1);
-  }
-  .meter-row { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
-  .meter-row button {
-    background: var(--panel); border: 1px solid rgba(255,255,255,0.2); color: white;
-    width: 40px; height: 35px; border-radius: 5px; font-size: 20px; cursor: pointer;
-  }
-  .meter-row button:active { background: rgba(255,255,255,0.1); }
-  input[type="range"] { flex: 1; cursor: pointer; accent-color: var(--accent); }
-  .speed-val { color: var(--accent); font-weight: bold; font-size: 16px; background: #000; padding: 2px 8px; border-radius: 4px;}
-  
-  .btn-pause {
-    background: #475569; color: white; font-weight: 600; border: none; padding: 10px; 
-    border-radius: 8px; font-size: 14px; cursor: pointer; transition: 0.2s; margin-top: 5px;
-  }
-  .btn-pause.paused { background: #F59E0B; color: #000; }
-  
-  .canvas-wrapper {
-    position: relative; width: 100%; aspect-ratio: 9/16; background: #000; border-radius: 12px; overflow: hidden;
-    border: 2px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-  }
-  canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
-  canvas:active { cursor: grabbing; }
   
   .btn {
     background: var(--accent); color: #000; font-weight: 700; border: none; padding: 14px; border-radius: 8px;
-    font-size: 16px; cursor: pointer; transition: 0.2s;
+    font-size: 16px; cursor: pointer; transition: 0.2s; width: 100%;
   }
   .btn:active { transform: scale(0.98); }
+  .btn:disabled { background: var(--muted); cursor: not-allowed; transform: none; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-success { background: var(--success); color: #fff; }
   
-  .status { text-align: center; font-size: 14px; color: #10B981; display: none; }
-  .recording-indicator { color: #EF4444; font-weight: bold; text-align: center; display: none; animation: blink 1s infinite; }
+  #statusBox { text-align: center; font-size: 15px; font-weight: 600; padding: 10px; border-radius: 8px; display: none; }
+  .info { background: rgba(56, 189, 248, 0.1); color: var(--accent); }
+  .processing { background: rgba(245, 158, 11, 0.1); color: #F59E0B; animation: pulse 1.5s infinite; }
+  .done { background: rgba(16, 185, 129, 0.1); color: var(--success); }
   
-  @keyframes blink { 50% { opacity: 0.4; } }
+  .file-info { font-size: 14px; color: var(--muted); background: #000; padding: 10px; border-radius: 6px; display: none; word-wrap: break-word;}
+  
+  @keyframes pulse { 50% { opacity: 0.6; } }
 </style>
 </head>
 <body>
 
 <div class="container">
-  <h1>Lyrics Video Maker</h1>
-  
-  <div class="input-group">
-    <label>1. പാട്ട് (Audio) തിരഞ്ഞെടുക്കുക</label>
-    <input type="file" id="audioInput" accept="audio/*">
-  </div>
-  
-  <div class="input-group">
-    <label>2. വരികൾ (Lyrics) നൽകുക</label>
-    <textarea id="lyricsInput" placeholder="വരികൾ ഇവിടെ പേസ്റ്റ് ചെയ്യുക..."></textarea>
-  </div>
-  
-  <div class="meter-box">
-    <label>3. സ്ക്രോളിംഗ് സ്പീഡ് മീറ്റർ <span class="speed-val" id="speedValue">40</span></label>
-    <div class="meter-row">
-      <button id="btnSlow">-</button>
-      <input type="range" id="speedSlider" min="0" max="150" value="40">
-      <button id="btnFast">+</button>
+  <h1>Audio Compressor</h1>
+  <p class="desc">MP3/MP4 ഫയലുകളെ 16kHz WAV ഫോർമാറ്റിലേക്ക് മാറ്റുക (ബ്രൗസർ റിഫ്രഷ് ചെയ്താലും ഫയൽ നഷ്ടപ്പെടില്ല)</p>
+
+  <div class="card">
+    <div id="uploadSection">
+      <label style="font-size: 14px; color: var(--muted); margin-bottom: 5px; display: block;">ഫയൽ തിരഞ്ഞെടുക്കുക:</label>
+      <input type="file" id="fileInput" accept="audio/*, video/*">
     </div>
-    <button id="pauseScrollBtn" class="btn-pause">⏸ മ്യൂസിക് വരുമ്പോൾ സ്ക്രോൾ നിർത്തുക</button>
+    
+    <div id="fileInfo" class="file-info"></div>
+    
+    <div id="statusBox"></div>
+    
+    <button id="convertBtn" class="btn" style="display: none;">⚙️ 16kHz WAV ആയി കംപ്രസ്സ് ചെയ്യുക</button>
+    <button id="downloadBtn" class="btn btn-success" style="display: none;">⬇️ ഡൗൺലോഡ് ചെയ്യുക</button>
+    <button id="clearBtn" class="btn btn-danger" style="display: none;">🗑️ പുതിയ ഫയൽ തിരഞ്ഞെടുക്കുക (Clear Job)</button>
   </div>
-  
-  <div class="canvas-wrapper">
-    <canvas id="videoCanvas" width="720" height="1280" tabindex="0"></canvas>
-  </div>
-  
-  <button id="recordBtn" class="btn">🔴 റെക്കോർഡിംഗ് തുടങ്ങുക</button>
-  <button id="stopBtn" class="btn" style="display:none; background:#EF4444; color:#fff;">⏹ റെക്കോർഡിംഗ് നിർത്തുക</button>
-  
-  <div id="recordingStatus" class="recording-indicator">റെക്കോർഡ് ചെയ്യുന്നു...</div>
-  <div id="saveStatus" class="status">വീഡിയോ സേവ് ആയി! ഡൗൺലോഡ് പരിശോധിക്കുക.</div>
-  
-  <audio id="audioPlayer" crossOrigin="anonymous" controls style="width: 100%; margin-top: 5px; height: 35px;"></audio>
 </div>
 
 <script>
-  const audioInput = document.getElementById('audioInput');
-  const lyricsInput = document.getElementById('lyricsInput');
-  const speedSlider = document.getElementById('speedSlider');
-  const speedValue = document.getElementById('speedValue');
-  const btnSlow = document.getElementById('btnSlow');
-  const btnFast = document.getElementById('btnFast');
-  const pauseScrollBtn = document.getElementById('pauseScrollBtn');
-  const canvas = document.getElementById('videoCanvas');
-  const ctx = canvas.getContext('2d');
-  const recordBtn = document.getElementById('recordBtn');
-  const stopBtn = document.getElementById('stopBtn');
-  const audioPlayer = document.getElementById('audioPlayer');
-  const recordingStatus = document.getElementById('recordingStatus');
-  const saveStatus = document.getElementById('saveStatus');
+  // --- IndexedDB Setup (For saving file across refreshes) ---
+  const dbName = "AudioConverterDB";
+  const storeName = "pendingJobs";
 
-  let mediaRecorder;
-  let recordedChunks = [];
-  let audioCtx, source, dest;
-  let lines = [];
-  
-  let scrollSpeed = parseInt(speedSlider.value);
-  let manualOffset = 0; 
-  let autoScrollY = 0; 
-  let lastTime = performance.now();
-  
-  let isDragging = false;
-  let startY = 0;
-  let initialOffset = 0;
-  let isScrollPaused = false;
-
-  function updateSpeed(val) {
-    scrollSpeed = Math.max(0, Math.min(150, val));
-    speedSlider.value = scrollSpeed;
-    speedValue.textContent = scrollSpeed;
-  }
-  
-  speedSlider.addEventListener('input', (e) => updateSpeed(parseInt(e.target.value)));
-  btnSlow.addEventListener('click', () => updateSpeed(scrollSpeed - 2));
-  btnFast.addEventListener('click', () => updateSpeed(scrollSpeed + 2));
-
-  pauseScrollBtn.addEventListener('click', () => {
-    isScrollPaused = !isScrollPaused;
-    if (isScrollPaused) {
-      pauseScrollBtn.textContent = '▶ സ്ക്രോളിംഗ് തുടരുക (Resume)';
-      pauseScrollBtn.classList.add('paused');
-    } else {
-      pauseScrollBtn.textContent = '⏸ മ്യൂസിക് വരുമ്പോൾ സ്ക്രോൾ നിർത്തുക';
-      pauseScrollBtn.classList.remove('paused');
-    }
-  });
-
-  audioInput.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
-      audioPlayer.src = URL.createObjectURL(file);
-    }
-  });
-
-  function updateLines() {
-    ctx.font = "bold 55px 'Manjari', sans-serif"; 
-    const rawLines = lyricsInput.value.split('\n');
-    lines = [];
-    const maxWidth = canvas.width - 80; 
-    
-    rawLines.forEach(text => {
-      if (text.trim() === '') {
-        lines.push('');
-        return;
-      }
-      let words = text.split(' ');
-      let currentLine = words[0] || '';
-      for (let i = 1; i < words.length; i++) {
-        let word = words[i];
-        let width = ctx.measureText(currentLine + " " + word).width;
-        if (width < maxWidth) {
-          currentLine += " " + word;
-        } else {
-          lines.push(currentLine); 
-          currentLine = word; 
+  function initDB() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(dbName, 1);
+      request.onupgradeneeded = (e) => {
+        let db = e.target.result;
+        if (!db.objectStoreNames.contains(storeName)) {
+          db.createObjectStore(storeName);
         }
-      }
-      if (currentLine) {
-        lines.push(currentLine);
-      }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
     });
   }
 
-  lyricsInput.addEventListener('input', updateLines);
-
-  function getEventY(e) { return e.touches ? e.touches[0].clientY : e.clientY; }
-
-  function onDragStart(e) {
-    isDragging = true;
-    startY = getEventY(e);
-    initialOffset = manualOffset;
-    canvas.focus(); 
+  async function saveFileToDB(file) {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      store.put(file, "currentFile");
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   }
 
-  function onDragMove(e) {
-    if (!isDragging) return;
-    let dy = getEventY(e) - startY;
-    let scale = canvas.height / canvas.clientHeight; 
-    manualOffset = initialOffset + (dy * scale);
+  async function getFileFromDB() {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readonly");
+      const store = tx.objectStore(storeName);
+      const request = store.get("currentFile");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
   }
 
-  function onDragEnd() { isDragging = false; }
+  async function clearFileFromDB() {
+    const db = await initDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readwrite");
+      const store = tx.objectStore(storeName);
+      store.delete("currentFile");
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
 
-  canvas.addEventListener('mousedown', onDragStart);
-  canvas.addEventListener('mousemove', onDragMove);
-  window.addEventListener('mouseup', onDragEnd);
-  canvas.addEventListener('mouseleave', () => { isDragging = false; });
-  
-  canvas.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    let scale = canvas.height / canvas.clientHeight;
-    manualOffset -= (e.deltaY * scale * 1.5);
-  }, { passive: false });
+  // --- UI Elements ---
+  const fileInput = document.getElementById('fileInput');
+  const uploadSection = document.getElementById('uploadSection');
+  const fileInfo = document.getElementById('fileInfo');
+  const convertBtn = document.getElementById('convertBtn');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const statusBox = document.getElementById('statusBox');
 
-  canvas.addEventListener('touchstart', onDragStart, { passive: true });
-  canvas.addEventListener('touchmove', onDragMove, { passive: true });
-  window.addEventListener('touchend', onDragEnd);
-  window.addEventListener('touchcancel', onDragEnd);
+  let currentFile = null;
+  let convertedBlob = null;
 
-  recordBtn.addEventListener('click', async () => {
-    if (!audioPlayer.src) {
-      alert("ആദ്യം ഒരു പാട്ട് അപ്‌ലോഡ് ചെയ്യുക!");
-      return;
+  function showStatus(text, className) {
+    statusBox.textContent = text;
+    statusBox.className = className;
+    statusBox.style.display = 'block';
+  }
+
+  function updateUIState() {
+    if (currentFile) {
+      uploadSection.style.display = 'none';
+      fileInfo.style.display = 'block';
+      fileInfo.textContent = `തിരഞ്ഞെടുത്ത ഫയൽ: ${currentFile.name} (${(currentFile.size / 1024 / 1024).toFixed(2)} MB)`;
+      
+      if (!convertedBlob) {
+        convertBtn.style.display = 'block';
+        clearBtn.style.display = 'block';
+        downloadBtn.style.display = 'none';
+        showStatus('ഫയൽ സുരക്ഷിതമായി സേവ് ചെയ്തിട്ടുണ്ട്. കംപ്രസ്സ് ചെയ്യാൻ ബട്ടൺ അമർത്തുക.', 'info');
+      } else {
+        convertBtn.style.display = 'none';
+        downloadBtn.style.display = 'block';
+        clearBtn.style.display = 'block';
+        showStatus('കംപ്രഷൻ വിജയകരമായി പൂർത്തിയായി!', 'done');
+      }
+    } else {
+      uploadSection.style.display = 'block';
+      fileInfo.style.display = 'none';
+      convertBtn.style.display = 'none';
+      downloadBtn.style.display = 'none';
+      clearBtn.style.display = 'none';
+      statusBox.style.display = 'none';
+      fileInput.value = '';
     }
+  }
+
+  // --- Page Load: Check if file exists in DB ---
+  window.onload = async () => {
+    try {
+      const savedFile = await getFileFromDB();
+      if (savedFile) {
+        currentFile = savedFile;
+        updateUIState();
+      }
+    } catch (e) {
+      console.error("DB Load Error", e);
+    }
+  };
+
+  // --- File Selection ---
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
     
-    updateLines(); 
-    manualOffset = 0; 
-    autoScrollY = 0;
-    lastTime = performance.now();
-    isScrollPaused = false;
-    pauseScrollBtn.textContent = '⏸ മ്യൂസിക് വരുമ്പോൾ സ്ക്രോൾ നിർത്തുക';
-    pauseScrollBtn.classList.remove('paused');
-    canvas.focus(); 
+    currentFile = file;
+    convertedBlob = null;
+    
+    showStatus('ഫയൽ സേവ് ചെയ്യുന്നു...', 'processing');
+    await saveFileToDB(currentFile);
+    updateUIState();
+  });
+
+  // --- Audio Conversion Logic (WAV 16kHz) ---
+  convertBtn.addEventListener('click', async () => {
+    if (!currentFile) return;
+    
+    convertBtn.disabled = true;
+    clearBtn.disabled = true;
+    showStatus('ഓഡിയോ പ്രോസസ്സ് ചെയ്യുന്നു... ദയവായി കാത്തിരിക്കുക.', 'processing');
     
     try {
-        await audioPlayer.play();
-    } catch (err) {
-        console.error("Audio play failed:", err);
-    }
-    
-    let audioTracks = [];
-    if (audioPlayer.captureStream || audioPlayer.mozCaptureStream) {
-        const aStream = audioPlayer.captureStream ? audioPlayer.captureStream() : audioPlayer.mozCaptureStream();
-        audioTracks = aStream.getAudioTracks();
-    }
-    
-    if (audioTracks.length === 0) {
-        if (!audioCtx) {
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          source = audioCtx.createMediaElementSource(audioPlayer);
-          dest = audioCtx.createMediaStreamDestination();
-          source.connect(dest);
-          source.connect(audioCtx.destination);
-        }
-        await audioCtx.resume();
-        audioTracks = dest.stream.getAudioTracks();
-    }
-    
-    audioPlayer.currentTime = 0; 
-    
-    const canvasStream = canvas.captureStream(30); 
-    const combinedStream = new MediaStream([
-      ...canvasStream.getVideoTracks(),
-      ...audioTracks
-    ]);
-    
-    let mimeType = 'video/webm;codecs=vp8,opus';
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
-    }
-    
-    mediaRecorder = new MediaRecorder(combinedStream, { mimeType: mimeType });
-    recordedChunks = [];
-    
-    mediaRecorder.ondataavailable = e => {
-      if (e.data.size > 0) recordedChunks.push(e.data);
-    };
-    
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(recordedChunks, { type: mimeType });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Lyrics-Video-${Date.now()}.${mimeType.includes('mp4') ? 'mp4' : 'webm'}`;
-      a.click();
+      const arrayBuffer = await currentFile.arrayBuffer();
       
-      recordBtn.style.display = 'block';
-      stopBtn.style.display = 'none';
-      recordingStatus.style.display = 'none';
-      saveStatus.style.display = 'block';
-      setTimeout(() => saveStatus.style.display = 'none', 4000);
-    };
-    
-    recordBtn.style.display = 'none';
-    stopBtn.style.display = 'block';
-    recordingStatus.style.display = 'block';
-    saveStatus.style.display = 'none';
-    
-    mediaRecorder.start();
-  });
-
-  stopBtn.addEventListener('click', () => {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-      audioPlayer.pause();
+      // 1. Decode Original Audio
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      
+      // 2. Resample to 16kHz (Mono) using OfflineAudioContext
+      const TARGET_SAMPLE_RATE = 16000;
+      const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * TARGET_SAMPLE_RATE, TARGET_SAMPLE_RATE);
+      
+      const source = offlineCtx.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(offlineCtx.destination);
+      source.start();
+      
+      const resampledBuffer = await offlineCtx.startRendering();
+      
+      // 3. Encode to WAV Format
+      convertedBlob = audioBufferToWavBlob(resampledBuffer);
+      
+      updateUIState();
+    } catch (error) {
+      console.error("Conversion Error:", error);
+      showStatus('കംപ്രഷൻ പരാജയപ്പെട്ടു. മറ്റൊരു ഫയൽ ശ്രമിക്കുക.', 'info');
+      statusBox.style.background = 'rgba(239, 68, 68, 0.1)';
+      statusBox.style.color = 'var(--danger)';
+    } finally {
+      convertBtn.disabled = false;
+      clearBtn.disabled = false;
     }
   });
 
-  audioPlayer.addEventListener('ended', () => {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      stopBtn.click();
+  // --- WAV Encoder Helper ---
+  function audioBufferToWavBlob(buffer) {
+    const numChannels = 1; // Mono
+    const sampleRate = buffer.sampleRate;
+    const format = 1; // PCM
+    const bitDepth = 16;
+    
+    const channelData = buffer.getChannelData(0);
+    const dataLength = channelData.length * (bitDepth / 8);
+    const bufferLength = 44 + dataLength;
+    const arrayBuffer = new ArrayBuffer(bufferLength);
+    const view = new DataView(arrayBuffer);
+    
+    function writeString(view, offset, string) {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
     }
-  });
-
-  function drawFrame() {
-    const now = performance.now();
-    const deltaTime = (now - lastTime) / 1000; 
-    lastTime = now;
-
-    if (!audioPlayer.paused && !isScrollPaused) {
-      autoScrollY += (scrollSpeed * deltaTime * 1.5); 
+    
+    // RIFF chunk descriptor
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataLength, true);
+    writeString(view, 8, 'WAVE');
+    
+    // FMT sub-chunk
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, format, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
+    view.setUint16(32, numChannels * (bitDepth / 8), true);
+    view.setUint16(34, bitDepth, true);
+    
+    // Data sub-chunk
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataLength, true);
+    
+    // Write PCM samples
+    let offset = 44;
+    for (let i = 0; i < channelData.length; i++) {
+      let sample = Math.max(-1, Math.min(1, channelData[i])); // clamp
+      sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF; // float to 16-bit
+      view.setInt16(offset, sample, true);
+      offset += 2;
     }
-
-    ctx.fillStyle = "#0A0F1C"; 
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    const startYPos = canvas.height * 0.7; 
-    const lineSpacing = 100; 
-    
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    
-    lines.forEach((line, index) => {
-      const lineY = startYPos + (index * lineSpacing) - autoScrollY + manualOffset;
-      
-      if (lineY < -100 || lineY > canvas.height + 100) return;
-      
-      const centerDist = Math.abs((canvas.height / 2) - lineY);
-      
-      // അറ്റത്തേക്ക് പോകുന്തോറും നേരിയ മങ്ങൽ (Fade effect) നൽകുന്നു
-      let opacity = Math.max(0.1, 1 - (centerDist / 800));
-      
-      // എല്ലാ വരികൾക്കും ഒരേ വലിപ്പത്തിലുള്ള ഫോണ്ട് (No Highlight)
-      ctx.font = "bold 55px 'Manjari', sans-serif";
-      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`; 
-      
-      // എല്ലാ വരികൾക്കും മനോഹരമായ ഗ്ലോ ഇഫക്റ്റ്
-      ctx.shadowColor = `rgba(56, 189, 248, ${opacity * 0.8})`; // ഇളം നീല തിളക്കം
-      ctx.shadowBlur = 15;
-      
-      ctx.fillText(line, canvas.width / 2, lineY);
-      
-      // തിളക്കം റീസെറ്റ് ചെയ്യുന്നു
-      ctx.shadowBlur = 0;
-    });
-    
-    // മുകളിലും താഴെയും ഒതുങ്ങിനിൽക്കാൻ Fade Effect
-    let topFade = ctx.createLinearGradient(0, 0, 0, 250);
-    topFade.addColorStop(0, "#0A0F1C");
-    topFade.addColorStop(1, "transparent");
-    ctx.fillStyle = topFade;
-    ctx.fillRect(0, 0, canvas.width, 250);
-    
-    let bottomFade = ctx.createLinearGradient(0, canvas.height - 250, 0, canvas.height);
-    bottomFade.addColorStop(0, "transparent");
-    bottomFade.addColorStop(1, "#0A0F1C");
-    ctx.fillStyle = bottomFade;
-    ctx.fillRect(0, canvas.height - 250, canvas.width, 250);
-    
-    requestAnimationFrame(drawFrame);
+    return new Blob([view], { type: 'audio/wav' });
   }
 
-  drawFrame();
+  // --- Download & Clear Jobs ---
+  downloadBtn.addEventListener('click', () => {
+    if (!convertedBlob) return;
+    const url = URL.createObjectURL(convertedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    // യഥാർത്ഥ പേരിനൊപ്പം _16kHz എന്ന് ചേർക്കുന്നു
+    const originalName = currentFile.name.split('.').slice(0, -1).join('.') || "audio";
+    a.download = `${originalName}_16kHz.wav`;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  clearBtn.addEventListener('click', async () => {
+    if (confirm("ഈ ഫയൽ ഡിലീറ്റ് ചെയ്ത് പുതിയത് തിരഞ്ഞെടുക്കണോ?")) {
+      await clearFileFromDB();
+      currentFile = null;
+      convertedBlob = null;
+      updateUIState();
+    }
+  });
+
 </script>
 
 </body>
