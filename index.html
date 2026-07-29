@@ -24,7 +24,6 @@
   }
   textarea { height: 80px; resize: none; }
   
-  /* --- Speed Meter Styling --- */
   .meter-box {
     background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px;
     border: 1px solid rgba(255,255,255,0.1);
@@ -38,7 +37,6 @@
   input[type="range"] { flex: 1; cursor: pointer; accent-color: var(--accent); }
   .speed-val { color: var(--accent); font-weight: bold; font-size: 16px; background: #000; padding: 2px 8px; border-radius: 4px;}
   
-  /* --- Pause Scroll Button --- */
   .btn-pause {
     background: #475569; color: white; font-weight: 600; border: none; padding: 10px; 
     border-radius: 8px; font-size: 14px; cursor: pointer; transition: 0.2s; margin-top: 5px;
@@ -86,7 +84,6 @@
       <input type="range" id="speedSlider" min="0" max="150" value="40">
       <button id="btnFast">+</button>
     </div>
-    <!-- സംഗീതം വരുമ്പോൾ വരികൾ നിർത്താനുള്ള ബട്ടൺ -->
     <button id="pauseScrollBtn" class="btn-pause">⏸ മ്യൂസിക് വരുമ്പോൾ സ്ക്രോൾ നിർത്തുക</button>
   </div>
   
@@ -126,15 +123,14 @@
   
   let scrollSpeed = parseInt(speedSlider.value);
   let manualOffset = 0; 
-  let autoScrollY = 0; // പാട്ടിനനുസരിച്ച് തനിയെ മാറുന്ന സ്ക്രോൾ
+  let autoScrollY = 0; 
   let lastTime = performance.now();
   
   let isDragging = false;
   let startY = 0;
   let initialOffset = 0;
-  let isScrollPaused = false; // സ്ക്രോൾ നിർത്താനുള്ള വേരിയബിൾ
+  let isScrollPaused = false;
 
-  // --- Speed Meter Logic ---
   function updateSpeed(val) {
     scrollSpeed = Math.max(0, Math.min(150, val));
     speedSlider.value = scrollSpeed;
@@ -145,7 +141,6 @@
   btnSlow.addEventListener('click', () => updateSpeed(scrollSpeed - 2));
   btnFast.addEventListener('click', () => updateSpeed(scrollSpeed + 2));
 
-  // --- Pause Scroll Logic ---
   pauseScrollBtn.addEventListener('click', () => {
     isScrollPaused = !isScrollPaused;
     if (isScrollPaused) {
@@ -165,7 +160,7 @@
   });
 
   function updateLines() {
-    ctx.font = "bold 65px 'Manjari', sans-serif"; 
+    ctx.font = "bold 55px 'Manjari', sans-serif"; 
     const rawLines = lyricsInput.value.split('\n');
     lines = [];
     const maxWidth = canvas.width - 80; 
@@ -195,7 +190,6 @@
 
   lyricsInput.addEventListener('input', updateLines);
 
-  // --- Manual Alignment (Drag/Scroll) ---
   function getEventY(e) { return e.touches ? e.touches[0].clientY : e.clientY; }
 
   function onDragStart(e) {
@@ -230,7 +224,6 @@
   window.addEventListener('touchend', onDragEnd);
   window.addEventListener('touchcancel', onDragEnd);
 
-  // --- Recording Logic ---
   recordBtn.addEventListener('click', async () => {
     if (!audioPlayer.src) {
       alert("ആദ്യം ഒരു പാട്ട് അപ്‌ലോഡ് ചെയ്യുക!");
@@ -326,13 +319,11 @@
     }
   });
 
-  // --- Drawing & Animation Loop ---
   function drawFrame() {
     const now = performance.now();
-    const deltaTime = (now - lastTime) / 1000; // സെക്കൻഡിൽ
+    const deltaTime = (now - lastTime) / 1000; 
     lastTime = now;
 
-    // ഓഡിയോ പ്ലേ ചെയ്യുന്നുണ്ടെങ്കിൽ, സ്ക്രോൾ Pause ചെയ്തിട്ടില്ലെങ്കിൽ മാത്രം സ്ക്രോൾ ചെയ്യുക
     if (!audioPlayer.paused && !isScrollPaused) {
       autoScrollY += (scrollSpeed * deltaTime * 1.5); 
     }
@@ -353,18 +344,24 @@
       
       const centerDist = Math.abs((canvas.height / 2) - lineY);
       
-      let opacity = Math.max(0.1, 1 - (centerDist / 600));
+      // അറ്റത്തേക്ക് പോകുന്തോറും നേരിയ മങ്ങൽ (Fade effect) നൽകുന്നു
+      let opacity = Math.max(0.1, 1 - (centerDist / 800));
+      
+      // എല്ലാ വരികൾക്കും ഒരേ വലിപ്പത്തിലുള്ള ഫോണ്ട് (No Highlight)
+      ctx.font = "bold 55px 'Manjari', sans-serif";
       ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`; 
       
-      if (centerDist < 100) {
-          ctx.font = "bold 60px 'Manjari', sans-serif";
-      } else {
-          ctx.font = "bold 50px 'Manjari', sans-serif";
-      }
+      // എല്ലാ വരികൾക്കും മനോഹരമായ ഗ്ലോ ഇഫക്റ്റ്
+      ctx.shadowColor = `rgba(56, 189, 248, ${opacity * 0.8})`; // ഇളം നീല തിളക്കം
+      ctx.shadowBlur = 15;
       
       ctx.fillText(line, canvas.width / 2, lineY);
+      
+      // തിളക്കം റീസെറ്റ് ചെയ്യുന്നു
+      ctx.shadowBlur = 0;
     });
     
+    // മുകളിലും താഴെയും ഒതുങ്ങിനിൽക്കാൻ Fade Effect
     let topFade = ctx.createLinearGradient(0, 0, 0, 250);
     topFade.addColorStop(0, "#0A0F1C");
     topFade.addColorStop(1, "transparent");
