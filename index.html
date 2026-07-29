@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Audio Compressor (16kHz WAV)</title>
+<title>Audio Compressor (AAC/M4A)</title>
 <link href="https://fonts.googleapis.com/css2?family=Anek+Malayalam:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root { --bg: #0F172A; --panel: #1E293B; --accent: #38BDF8; --text: #F8FAFC; --muted: #94A3B8; --danger: #EF4444; --success: #10B981; }
@@ -12,7 +12,7 @@
   
   .container { max-width: 500px; margin: 20px auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
   h1 { font-size: 22px; text-align: center; margin: 0; color: var(--accent); }
-  p.desc { font-size: 14px; color: var(--muted); text-align: center; margin-top: -5px; }
+  p.desc { font-size: 14px; color: var(--muted); text-align: center; margin-top: -5px; line-height: 1.5; }
   
   .card { background: var(--panel); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; gap: 15px; }
   
@@ -30,21 +30,21 @@
   .btn-danger { background: var(--danger); color: #fff; }
   .btn-success { background: var(--success); color: #fff; }
   
-  #statusBox { text-align: center; font-size: 15px; font-weight: 600; padding: 10px; border-radius: 8px; display: none; }
+  #statusBox { text-align: center; font-size: 14px; font-weight: 600; padding: 12px; border-radius: 8px; display: none; line-height: 1.5; }
   .info { background: rgba(56, 189, 248, 0.1); color: var(--accent); }
   .processing { background: rgba(245, 158, 11, 0.1); color: #F59E0B; animation: pulse 1.5s infinite; }
   .done { background: rgba(16, 185, 129, 0.1); color: var(--success); }
   
   .file-info { font-size: 14px; color: var(--muted); background: #000; padding: 10px; border-radius: 6px; display: none; word-wrap: break-word;}
   
-  @keyframes pulse { 50% { opacity: 0.6; } }
+  @keyframes pulse { 50% { opacity: 0.7; } }
 </style>
 </head>
 <body>
 
 <div class="container">
   <h1>Audio Compressor</h1>
-  <p class="desc">MP3/MP4 ഫയലുകളെ 16kHz WAV ഫോർമാറ്റിലേക്ക് മാറ്റുക (ബ്രൗസർ റിഫ്രഷ് ചെയ്താലും ഫയൽ നഷ്ടപ്പെടില്ല)</p>
+  <p class="desc">MP3/MP4 ഫയലുകളെ AAC (.m4a) ഫോർമാറ്റിലേക്ക് മാറ്റുക <br><span style="font-size: 12px; opacity: 0.8;">(ബ്രൗസർ റിഫ്രഷ് ചെയ്താലും ഫയൽ നഷ്ടപ്പെടില്ല)</span></p>
 
   <div class="card">
     <div id="uploadSection">
@@ -56,7 +56,7 @@
     
     <div id="statusBox"></div>
     
-    <button id="convertBtn" class="btn" style="display: none;">⚙️ 16kHz WAV ആയി കംപ്രസ്സ് ചെയ്യുക</button>
+    <button id="convertBtn" class="btn" style="display: none;">⚙️ M4A ആയി കംപ്രസ്സ് ചെയ്യുക</button>
     <button id="downloadBtn" class="btn btn-success" style="display: none;">⬇️ ഡൗൺലോഡ് ചെയ്യുക</button>
     <button id="clearBtn" class="btn btn-danger" style="display: none;">🗑️ പുതിയ ഫയൽ തിരഞ്ഞെടുക്കുക (Clear Job)</button>
   </div>
@@ -125,9 +125,10 @@
 
   let currentFile = null;
   let convertedBlob = null;
+  let convertedExtension = 'm4a';
 
   function showStatus(text, className) {
-    statusBox.textContent = text;
+    statusBox.innerHTML = text;
     statusBox.className = className;
     statusBox.style.display = 'block';
   }
@@ -186,96 +187,83 @@
     updateUIState();
   });
 
-  // --- Audio Conversion Logic (WAV 16kHz) ---
+  // --- AAC (.m4a) Conversion Logic using MediaRecorder ---
   convertBtn.addEventListener('click', async () => {
     if (!currentFile) return;
     
     convertBtn.disabled = true;
     clearBtn.disabled = true;
-    showStatus('ഓഡിയോ പ്രോസസ്സ് ചെയ്യുന്നു... ദയവായി കാത്തിരിക്കുക.', 'processing');
+    showStatus('ഓഡിയോ തയ്യാറാക്കുന്നു... ദയവായി കാത്തിരിക്കുക.', 'processing');
     
     try {
       const arrayBuffer = await currentFile.arrayBuffer();
-      
-      // 1. Decode Original Audio
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
       
-      // 2. Resample to 16kHz (Mono) using OfflineAudioContext
-      const TARGET_SAMPLE_RATE = 16000;
-      const offlineCtx = new OfflineAudioContext(1, audioBuffer.duration * TARGET_SAMPLE_RATE, TARGET_SAMPLE_RATE);
-      
-      const source = offlineCtx.createBufferSource();
+      // ഡീകോഡ് ചെയ്ത ഓഡിയോ പ്ലേ ചെയ്ത് റെക്കോർഡ് ചെയ്യാനുള്ള സജ്ജീകരണം
+      const dest = audioCtx.createMediaStreamDestination();
+      const source = audioCtx.createBufferSource();
       source.buffer = audioBuffer;
-      source.connect(offlineCtx.destination);
-      source.start();
+      source.connect(dest);
       
-      const resampledBuffer = await offlineCtx.startRendering();
+      // ബ്രൗസർ സപ്പോർട്ട് അനുസരിച്ച് ഫോർമാറ്റ് തീരുമാനിക്കുന്നു
+      let mimeType = 'audio/mp4'; 
+      convertedExtension = 'm4a';
       
-      // 3. Encode to WAV Format
-      convertedBlob = audioBufferToWavBlob(resampledBuffer);
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = 'audio/webm;codecs=opus';
+          convertedExtension = 'webm';
+      }
       
-      updateUIState();
+      const recorder = new MediaRecorder(dest.stream, { mimeType: mimeType });
+      const chunks = [];
+      
+      recorder.ondataavailable = e => {
+        if (e.data.size > 0) chunks.push(e.data);
+      };
+      
+      recorder.onstop = () => {
+        convertedBlob = new Blob(chunks, { type: mimeType });
+        updateUIState();
+        audioCtx.close();
+      };
+      
+      // പാട്ട് പ്ലേ ചെയ്തു തുടങ്ങുകയും റെക്കോർഡിംഗ് ആരംഭിക്കുകയും ചെയ്യുന്നു
+      source.start(0);
+      recorder.start();
+      
+      // കംപ്രഷൻ ശതമാനം കാണിക്കാൻ
+      const duration = audioBuffer.duration;
+      const startTime = Date.now();
+      
+      const timerInterval = setInterval(() => {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const percent = Math.min(99, Math.round((elapsed / duration) * 100));
+        
+        let formatNote = convertedExtension === 'm4a' ? 'AAC (.m4a)' : 'Opus (.webm)';
+        showStatus(`കംപ്രസ്സ് ചെയ്യുന്നു... <b>${percent}%</b> പൂർത്തിയായി<br><span style="font-size:12px; opacity:0.8;">(ബ്രൗസർ ക്ലോസ് ചെയ്യരുത്. ഫോർമാറ്റ്: ${formatNote})</span>`, 'processing');
+        
+        if (elapsed >= duration) {
+            clearInterval(timerInterval);
+        }
+      }, 1000);
+      
+      source.onended = () => {
+        clearInterval(timerInterval);
+        if (recorder.state === 'recording') {
+            recorder.stop();
+        }
+      };
+      
     } catch (error) {
       console.error("Conversion Error:", error);
       showStatus('കംപ്രഷൻ പരാജയപ്പെട്ടു. മറ്റൊരു ഫയൽ ശ്രമിക്കുക.', 'info');
       statusBox.style.background = 'rgba(239, 68, 68, 0.1)';
       statusBox.style.color = 'var(--danger)';
-    } finally {
       convertBtn.disabled = false;
       clearBtn.disabled = false;
     }
   });
-
-  // --- WAV Encoder Helper ---
-  function audioBufferToWavBlob(buffer) {
-    const numChannels = 1; // Mono
-    const sampleRate = buffer.sampleRate;
-    const format = 1; // PCM
-    const bitDepth = 16;
-    
-    const channelData = buffer.getChannelData(0);
-    const dataLength = channelData.length * (bitDepth / 8);
-    const bufferLength = 44 + dataLength;
-    const arrayBuffer = new ArrayBuffer(bufferLength);
-    const view = new DataView(arrayBuffer);
-    
-    function writeString(view, offset, string) {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
-      }
-    }
-    
-    // RIFF chunk descriptor
-    writeString(view, 0, 'RIFF');
-    view.setUint32(4, 36 + dataLength, true);
-    writeString(view, 8, 'WAVE');
-    
-    // FMT sub-chunk
-    writeString(view, 12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, format, true);
-    view.setUint16(22, numChannels, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * numChannels * (bitDepth / 8), true);
-    view.setUint16(32, numChannels * (bitDepth / 8), true);
-    view.setUint16(34, bitDepth, true);
-    
-    // Data sub-chunk
-    writeString(view, 36, 'data');
-    view.setUint32(40, dataLength, true);
-    
-    // Write PCM samples
-    let offset = 44;
-    for (let i = 0; i < channelData.length; i++) {
-      let sample = Math.max(-1, Math.min(1, channelData[i])); // clamp
-      sample = sample < 0 ? sample * 0x8000 : sample * 0x7FFF; // float to 16-bit
-      view.setInt16(offset, sample, true);
-      offset += 2;
-    }
-    
-    return new Blob([view], { type: 'audio/wav' });
-  }
 
   // --- Download & Clear Jobs ---
   downloadBtn.addEventListener('click', () => {
@@ -283,9 +271,11 @@
     const url = URL.createObjectURL(convertedBlob);
     const a = document.createElement('a');
     a.href = url;
-    // യഥാർത്ഥ പേരിനൊപ്പം _16kHz എന്ന് ചേർക്കുന്നു
+    
+    // യഥാർത്ഥ പേരിനൊപ്പം എക്സ്റ്റൻഷൻ മാറ്റുന്നു
     const originalName = currentFile.name.split('.').slice(0, -1).join('.') || "audio";
-    a.download = `${originalName}_16kHz.wav`;
+    a.download = `${originalName}_compressed.${convertedExtension}`;
+    
     a.click();
     URL.revokeObjectURL(url);
   });
